@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMBRA · 新拟物后台 · 5 种交互 Demo</title>
+<style>
+/* ===== 风格底座（视频逐字参数，全在此处变量化） =====
+   底色暖米白 #F2E8E0；同色成形；一亮一暗两层柔影；
+   圆角：卡片24/按键16/旋钮与指示灯正圆；
+   钴蓝只给按下、开启、当前项与关键数据；告警朱橙；
+   拟物感只给可交互元素，正文保持平整；弹簧动画过冲回弹。 */
+:root {
+  --bg: #F2E8E0;
+  --sh-light: #FFFFFF;
+  --sh-dark: #D6C8BD;
+  --accent: #2F4BD0;
+  --warn: #E2552D;
+  --text: #23201D;
+  --text-2: #6E655E;
+  --r-card: 24px;
+  --r-key: 16px;
+  --raise: -6px -6px 14px var(--sh-light), 6px 6px 14px var(--sh-dark);
+  --raise-soft: -4px -4px 10px var(--sh-light), 4px 4px 10px var(--sh-dark);
+  --press: inset 4px 4px 10px var(--sh-dark), inset -4px -4px 10px var(--sh-light);
+  /* 弹簧动画：视频参数被切镜，用 160ms 量级弹性曲线替代 */
+  --spring: 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-lg: 420ms cubic-bezier(0.30, 1.45, 0.45, 1);
+  --mono-num: "SF Mono", "Menlo", "Consolas", monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+               "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-variant-numeric: tabular-nums; /* 数字用等宽数字 */
+  min-height: 100vh;
+  padding: 28px clamp(16px, 4vw, 48px) 60px;
+}
+section { scroll-margin-top: 20px; }
+
+/* ===== 顶栏（正文区，保持平整无阴影） ===== */
+header { max-width: 1180px; margin: 0 auto 26px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.brand { font-size: 26px; font-weight: 800; letter-spacing: 4px; }
+.brand-sub { color: var(--text-2); font-size: 14px; }
+.motto { margin-left: auto; color: var(--text-2); font-size: 13px; }
+.motto b { color: var(--text); font-weight: 600; }
+
+/* ===== 布局 ===== */
+.layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 196px 1fr; gap: 26px; align-items: start; }
+main { display: grid; gap: 26px; min-width: 0; }
+
+/* ===== 卡片容器（凸起） ===== */
+.card {
+  background: var(--bg);
+  border-radius: var(--r-card);
+  box-shadow: var(--raise);
+  padding: 26px 28px 30px;
+}
+.card h2 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.tag {
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--accent);
+  border-radius: 6px; padding: 2px 7px; letter-spacing: 1px; flex: none;
+}
+.card .hint { color: var(--text-2); font-size: 13px; margin-bottom: 20px; }
+
+/* ===== 交互 01：实体按键（键帽菜单） ===== */
+.sidebar { display: grid; gap: 14px; position: sticky; top: 20px; }
+.sidebar-title { font-size: 12px; color: var(--text-2); letter-spacing: 2px; padding-left: 4px; }
+.key {
+  display: flex; align-items: center; gap: 10px;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--text);
+  background: var(--bg); border: none; cursor: pointer;
+  border-radius: var(--r-key); padding: 13px 16px;
+  box-shadow: var(--raise-soft);
+  transition: transform var(--spring), box-shadow var(--spring);
+  text-align: left; width: 100%;
+}
+.key .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--sh-dark); transition: background var(--spring), box-shadow var(--spring);
+}
+.key:not(.active):hover { transform: translateY(-1px); }      /* 悬停微浮起 */
+.key:not(.active):active,
+.key.active {
+  transform: translateY(2px);                                  /* 下沉 2px */
+  box-shadow: var(--press);                                    /* 外阴影转内阴影 */
+}
+.key.active .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.key:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== 交互 04：机械数字（滚轮计数器） ===== */
+.odo-row { display: flex; gap: 28px; flex-wrap: wrap; }
+.odo-block { display: grid; gap: 8px; }
+.odo-label { font-size: 13px; color: var(--text-2); }
+.odo { display: flex; gap: 6px; }
+.odo-win {
+  width: 42px; height: 52px; overflow: hidden;
+  border-radius: 10px; box-shadow: var(--press);               /* 嵌在内凹的窗口里 */
+  display: grid; place-items: start center;
+  background: var(--bg);
+}
+.odo-strip { display: grid; transition: transform 640ms cubic-bezier(0.30, 1.55, 0.42, 1); }
+.odo-strip i { font-style: normal; font-size: 30px; font-weight: 700; line-height: 52px; height: 52px; width: 42px; text-align: center; }
+.odo-unit { font-size: 13px; color: var(--text-2); align-self: end; padding-bottom: 8px; }
+.range-keys { display: flex; gap: 12px; margin-top: 22px; }
+.range-keys .key { width: auto; padding: 10px 20px; }
+
+/* ===== 交互 02：旋钮调值 ===== */
+.knob-wrap { display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
+.knob-box { flex: none; display: grid; justify-items: center; gap: 8px; }
+.knob-svg { width: 208px; height: 208px; touch-action: none; cursor: grab; }
+.knob-svg:active { cursor: grabbing; }
+.knob-svg .track { stroke: var(--sh-dark); }
+.knob-svg .fill { stroke: var(--accent); transition: stroke-dashoffset 90ms linear; }
+.knob-ticks text { fill: var(--text-2); font-size: 11px; font-family: var(--mono-num); }
+.knob-body {
+  fill: var(--bg); stroke: none;
+  filter: drop-shadow(-5px -5px 10px var(--sh-light)) drop-shadow(5px 5px 10px var(--sh-dark));
+}
+.knob-pointer { stroke: var(--text); stroke-width: 4; stroke-linecap: round; }
+.knob-brand { fill: var(--text-2); font-size: 11px; letter-spacing: 3px; }
+.knob-value { font-size: 40px; font-weight: 800; color: var(--accent); font-family: var(--mono-num); }
+.knob-value small { font-size: 16px; color: var(--text-2); font-weight: 600; }
+.knob-caption { font-size: 12px; color: var(--text-2); }
+.chart-box { flex: 1; min-width: 260px; display: grid; gap: 10px; }
+.chart-title { font-size: 13px; color: var(--text-2); display: flex; justify-content: space-between; }
+.chart-title b { color: var(--text); }
+.bars { position: relative; height: 170px; display: flex; align-items: flex-end; gap: 8px; padding-top: 6px; }
+.bars i {
+  flex: 1; border-radius: 5px 5px 2px 2px; background: var(--sh-dark);
+  transition: background 260ms;
+}
+.bars i.hit { background: var(--accent); }                     /* 钴蓝只给关键数据 */
+.goal-line {
+  position: absolute; left: 0; right: 0; border-top: 2px dashed var(--accent);
+  transition: top var(--spring-lg);
+}
+.goal-line span {
+  position: absolute; right: 0; top: -18px; font-size: 10px; color: var(--accent);
+  font-family: var(--mono-num);
+}
+.x-labels { display: flex; gap: 8px; font-size: 10px; color: var(--text-2); }
+.x-labels b { flex: 1; text-align: center; font-weight: 500; }
+
+/* ===== 交互 03：开关通电 ===== */
+.power-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+.power-card {
+  border-radius: var(--r-key); box-shadow: var(--raise-soft);
+  padding: 16px 18px; display: grid; gap: 12px;
+  transition: box-shadow var(--spring);
+}
+.power-head { display: flex; align-items: center; gap: 10px; }
+.lamp {
+  width: 10px; height: 10px; border-radius: 50%; flex: none;
+  background: var(--sh-dark); transition: background var(--spring), box-shadow var(--spring);
+}
+.power-name { font-size: 14px; font-weight: 600; }
+.power-state { margin-left: auto; font-size: 11px; color: var(--text-2); font-family: var(--mono-num); }
+.switch {
+  --knob: 26px; position: relative; width: 52px; height: 28px; flex: none;
+  border-radius: 999px; box-shadow: var(--press); border: none; cursor: pointer;
+  background: var(--bg); transition: background var(--spring);
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: var(--knob); height: var(--knob); border-radius: 50%;
+  background: var(--bg); box-shadow: var(--raise-soft);
+  transition: left var(--spring);
+}
+.switch.on::after { left: calc(100% - var(--knob) - 3px); }
+.power-row2 { display: flex; align-items: center; gap: 14px; }
+.mini-bars { display: flex; align-items: flex-end; gap: 4px; height: 54px; flex: 1; }
+.mini-bars i { flex: 1; border-radius: 3px; background: var(--sh-dark); opacity: .55; transition: background 500ms, opacity 500ms; }
+.power-card.on .mini-bars i { background: var(--accent); opacity: 1; } /* 通电：灰→彩渐变 */
+.power-card.on .lamp { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.power-card.on { box-shadow: var(--raise-soft); }
+.power-card .power-state b { color: var(--text-2); font-weight: 600; }
+.power-card.on .power-state b { color: var(--accent); }
+
+/* ===== 交互 05：卡片抽拉 ===== */
+.pull-stage { display: grid; place-items: center; min-height: 330px; }
+.stack { position: relative; width: 300px; height: 330px; }
+.emp {
+  position: absolute; inset: 0; border-radius: var(--r-card);
+  background: var(--bg); box-shadow: var(--raise);
+  padding: 22px 24px; display: grid; gap: 8px; align-content: start;
+  transition: transform var(--spring-lg), opacity 300ms;
+  user-select: none;
+}
+.emp .name { font-size: 17px; font-weight: 700; }
+.emp .role { font-size: 12px; color: var(--text-2); }
+.emp .kpi { margin-top: 10px; font-size: 13px; color: var(--text-2); }
+.emp .kpi b { color: var(--text); font-size: 20px; font-family: var(--mono-num); }
+.emp .kpi b.good { color: var(--accent); }
+.emp .back1 { transform: translateY(14px) scale(0.94); }
+.emp .back2 { transform: translateY(28px) scale(0.88); }
+.emp .top { cursor: grab; touch-action: none; z-index: 3; }
+.emp .top:active { cursor: grabbing; }
+.emp .detail { display: none; }
+.emp.expanded { transform: translateY(0) scale(1.06) !important; z-index: 5; }
+.emp.expanded .base-info { display: none; }
+.emp.expanded .detail { display: grid; gap: 12px; }
+.detail .d-title { font-size: 15px; font-weight: 700; }
+.detail .d-bars { display: flex; align-items: flex-end; gap: 5px; height: 120px; }
+.detail .d-bars i { flex: 1; border-radius: 3px; background: var(--accent); }
+.detail .d-foot { display: flex; align-items: center; gap: 12px; }
+.detail .link { font-size: 13px; color: var(--accent); }
+.pull-caption { margin-top: 18px; text-align: center; font-size: 12px; color: var(--text-2); min-height: 18px; }
+.pull-caption.ok { color: var(--accent); }
+
+/* ===== 页脚：风格底座原文（可复制） ===== */
+footer { max-width: 1180px; margin: 34px auto 0; }
+.foundation {
+  border-radius: var(--r-card); box-shadow: var(--raise);
+  padding: 22px 26px; display: grid; gap: 12px;
+}
+.foundation .f-head { display: flex; align-items: center; gap: 12px; }
+.foundation .f-head h3 { font-size: 14px; font-weight: 700; }
+.foundation pre {
+  font-family: var(--mono-num); font-size: 12px; line-height: 1.8;
+  color: var(--text-2); white-space: pre-wrap;                 /* 正文保持平整 */
+}
+.copy-key { width: auto; padding: 9px 16px; font-size: 12px; margin-left: auto; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">AMBRA</div>
+  <div class="brand-sub">新拟物后台 · 5 种交互 Demo</div>
+  <div class="motto"><b>玻璃让后台好看，拟物让后台好按</b> · 挑两种配着用，比如实体按键配机械数字</div>
+</header>
+
+<div class="layout">
+
+  <!-- 交互 01：键帽菜单本身 -->
+  <nav class="sidebar" aria-label="区块导航">
+    <div class="sidebar-title">NAVI / 实体按键</div>
+    <button class="key active" data-target="sec-odo"><span class="dot"></span>数据概览</button>
+    <button class="key" data-target="sec-knob"><span class="dot"></span>旋钮调值</button>
+    <button class="key" data-target="sec-power"><span class="dot"></span>开关通电</button>
+    <button class="key" data-target="sec-pull"><span class="dot"></span>卡片抽拉</button>
+  </nav>
+
+  <main>
+
+    <!-- 交互 04：机械数字 -->
+    <section class="card" id="sec-odo">
+      <h2><span class="tag">交互 04</span>机械数字 · ROLL</h2>
+      <p class="hint">切换时间维度，每一位数字像老式计数器一样独立滚动，低位滚得更快，停止时轻微过冲回弹。</p>
+      <div class="odo-row">
+        <div class="odo-block">
+          <div class="odo-label">完成任务</div>
+          <div class="odo" data-odo id="odo-a"></div>
+        </div>
+        <div class="odo-block">
+          <div class="odo-label">投入工时</div>
+          <div class="odo" data-odo id="odo-b"></div>
+        </div>
+        <div class="odo-block">
+          <div class="odo-label">KPI 均分</div>
+          <div class="odo" data-odo id="odo-c"></div>
+        </div>
+      </div>
+      <div class="range-keys">
+        <button class="key active" data-range="month"><span class="dot"></span>本月</button>
+        <button class="key" data-range="year"><span class="dot"></span>全年</button>
+      </div>
+    </section>
+
+    <!-- 交互 02：旋钮调值 -->
+    <section class="card" id="sec-knob">
+      <h2><span class="tag">交互 02</span>旋钮调值 · TURN</h2>
+      <p class="hint">按住旋钮拧动，一格一格吸附；外圈亮起已选范围，数值与图表目标线实时联动。</p>
+      <div class="knob-wrap">
+        <div class="knob-box">
+          <svg class="knob-svg" id="knob" viewBox="0 0 208 208" role="slider" aria-label="目标值"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="60" tabindex="0">
+            <circle class="track" cx="104" cy="104" r="84" fill="none" stroke-width="10"/>
+            <circle class="fill" id="knob-fill" cx="104" cy="104" r="84" fill="none" stroke-width="10"
+                    stroke-linecap="round" transform="rotate(-135 104 104)"/>
+            <g class="knob-ticks" id="knob-ticks"></g>
+            <circle class="knob-body" cx="104" cy="104" r="58"/>
+            <line class="knob-pointer" id="knob-pointer" x1="104" y1="60" x2="104" y2="76"
+                  transform="rotate(0 104 104)"/>
+            <text class="knob-brand" x="104" y="140" text-anchor="middle">AMBRA</text>
+          </svg>
+          <div class="knob-caption">拖动旋转 · 每 5% 一格吸附 · 键盘 ↑↓ 微调</div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title"><span>月度完成率 vs 目标</span><b id="goal-text">目标 60%</b></div>
+          <div class="bars" id="main-bars">
+            <div class="goal-line" id="goal-line"><span id="goal-num">60</span></div>
+          </div>
+          <div class="x-labels" id="x-labels"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交互 03：开关通电 -->
+    <section class="card" id="sec-power">
+      <h2><span class="tag">交互 03</span>开关通电 · POWER</h2>
+      <p class="hint">每个模块右上角一颗拨动开关：拨上去模块像通了电，指示灯亮起，图表从灰色渐渐充满颜色；拨下来反向渐暗。</p>
+      <div class="power-grid" id="power-grid"></div>
+    </section>
+
+    <!-- 交互 05：卡片抽拉 -->
+    <section class="card" id="sec-pull">
+      <h2><span class="tag">交互 05</span>卡片抽拉 · PULL</h2>
+      <p class="hint">按住顶部员工卡向下拖：后方卡片按重量依次下沉、松手浮回。拉得不够远会弹回原位，拉过阈值就展开成详情。</p>
+      <div class="pull-stage">
+        <div class="stack" id="stack">
+          <div class="emp back2"><div class="base-info"><div class="name">Lin Yao</div><div class="role">Data Analyst</div><div class="kpi">KPI Score <b>88</b>/100</div></div></div>
+          <div class="emp back1"><div class="base-info"><div class="name">Ren Wu</div><div class="role">Frontend Developer</div><div class="kpi">KPI Score <b>91</b>/100</div></div></div>
+          <div class="emp top" id="top-card">
+            <div class="base-info">
+              <div class="name">Mei Chen</div>
+              <div class="role">Product Designer</div>
+              <div class="kpi">KPI Score <b class="good">96</b>/100 · Completed tasks <b>32</b></div>
+            </div>
+            <div class="detail">
+              <div class="d-title">Performance · 2026</div>
+              <div class="d-bars" id="detail-bars"></div>
+              <div class="d-foot">
+                <span class="link">View performance ↗</span>
+                <button class="key" id="collapse-btn" style="width:auto;padding:9px 16px;font-size:12px;margin-left:auto"><span class="dot"></span>收起</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pull-caption" id="pull-caption">按住顶部卡片向下拖拽</div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="foundation">
+    <div class="f-head">
+      <h3>风格底座提示词（放在任何一句交互提示词前都能用）</h3>
+      <button class="key copy-key" id="copy-btn"><span class="dot"></span>复制底座</button>
+    </div>
+    <pre id="foundation-text">整体为新拟物（Neumorphism / soft UI）后台界面，带轻微 3D 实体感：
+底色：暖米白 #F2E8E0，卡片、按钮与背景同色，只靠阴影成形。
+凸起：左上亮阴影 -6px -6px 14px #FFFFFF，右下暗阴影 6px 6px 14px #D6C8BD。
+凹陷：inset 4px 4px 10px #D6C8BD，inset -4px -4px 10px #FFFFFF。
+圆角：卡片 24px，按键 16px，旋钮与指示灯为正圆。
+强调色：钴蓝 #2F4BD0 只给按下、开启、当前项与关键数据；告警少量用朱橙 #E2552D。
+文字：主文字 #23201D，次文字不浅于 #6E655E；几何无衬线字体，数字用等宽数字。
+拟物感只给可交互元素；正文与表格保持平整。
+状态变化用弹簧动画，160ms 量级，带过冲回弹。</pre>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* ============ 咔哒声（WebAudio 合成，无外部资源） ============ */
+var actx = null;
+function clickSound(low) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = "square"; o.frequency.value = low ? 1350 : 2100;
+    var t = actx.currentTime;
+    g.gain.setValueAtTime(0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + 0.04);
+  } catch (e) { /* 音频不可用则静默 */ }
+}
+
+/* ============ 交互 01：键帽菜单 ============ */
+document.querySelectorAll(".sidebar .key").forEach(function (k) {
+  k.addEventListener("pointerdown", function () { clickSound(true); });
+  k.addEventListener("pointerup", function () { clickSound(false); });
+  k.addEventListener("click", function () {
+    document.querySelectorAll(".sidebar .key").forEach(function (j) { j.classList.remove("active"); });
+    k.classList.add("active");
+    var t = document.getElementById(k.dataset.target);
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+/* ============ 交互 04：机械数字 ============ */
+function makeOdo(el, digits) {
+  var html = "";
+  for (var d = 0; d < digits; d++) {
+    html += '<span class="odo-win"><span class="odo-strip">';
+    for (var i = 0; i <= 9; i++) html += "<i>" + i + "</i>";
+    html += "</span></span>";
+  }
+  el.innerHTML = html;
+  return {
+    set: function (num) {
+      var s = String(num).padStart(digits, "0");
+      var strips = el.querySelectorAll(".odo-strip");
+      strips.forEach(function (st, idx) {
+        var v = +s[idx];
+        var fromRight = digits - 1 - idx;          /* 低位滚得更快 → 高位时长更长 */
+        st.style.transitionDuration = (420 + fromRight * 70) + "ms";
+        st.style.transform = "translateY(" + (-v * 52) + "px)";
+      });
+    }
+  };
+}
+var odos = {
+  a: makeOdo(document.getElementById("odo-a"), 3),
+  b: makeOdo(document.getElementById("odo-b"), 3),
+  c: makeOdo(document.getElementById("odo-c"), 2)
+};
+var rangeData = {
+  month: { a: 128, b: 316, c: 88 },
+  year:  { a: 964, b: 852, c: 92 }
+};
+function setRange(r) {
+  var d = rangeData[r];
+  odos.a.set(d.a); odos.b.set(d.b); odos.c.set(d.c);
+}
+document.querySelectorAll(".range-keys .key").forEach(function (k) {
+  k.addEventListener("pointerdown", function () { clickSound(true); });
+  k.addEventListener("pointerup", function () { clickSound(false); });
+  k.addEventListener("click", function () {
+    document.querySelectorAll(".range-keys .key").forEach(function (j) { j.classList.remove("active"); });
+    k.classList.add("active");
+    setRange(k.dataset.range);
+  });
+});
+setRange("month");
+
+/* ============ 交互 02：旋钮调值 ============ */
+var MONTHS = [62, 71, 58, 66, 79, 84, 73, 88, 91, 77, 83, 93];
+var knobEl = document.getElementById("knob");
+var fillEl = document.getElementById("knob-fill");
+var ptrEl = document.getElementById("knob-pointer");
+var goalLine = document.getElementById("goal-line");
+var goalText = document.getElementById("goal-text");
+var goalNum = document.getElementById("goal-num");
+var C = 2 * Math.PI * 84;
+fillEl.style.strokeDasharray = C + " " + C;
+var knobValue = 60;
+
+(function buildTicks() {
+  var g = document.getElementById("knob-ticks");
+  var labels = { 0: "0", 25: "25", 50: "50", 75: "75", 100: "100" };
+  for (var v = 0; v <= 100; v += 12.5) {
+    var ang = (v * 2.7 - 135 - 90) * Math.PI / 180;   /* 值→角度：-135°..135° */
+    var r1 = 72, r2 = v % 25 === 0 ? 66 : 69;
+    var l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    l.setAttribute("x1", 104 + r1 * Math.cos(ang)); l.setAttribute("y1", 104 + r1 * Math.sin(ang));
+    l.setAttribute("x2", 104 + r2 * Math.cos(ang)); l.setAttribute("y2", 104 + r2 * Math.sin(ang));
+    l.setAttribute("stroke", "#6E655E"); l.setAttribute("stroke-width", v % 25 === 0 ? 2 : 1);
+    g.appendChild(l);
+    if (labels[v] !== undefined) {
+      var t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      var rt = 56;
+      t.setAttribute("x", 104 + rt * Math.cos(ang)); t.setAttribute("y", 104 + rt * Math.sin(ang) + 4);
+      t.setAttribute("text-anchor", "middle"); t.textContent = labels[v];
+      g.appendChild(t);
+    }
+  }
+})();
+
+function setKnob(v, silent) {
+  knobValue = Math.max(0, Math.min(100, Math.round(v / 5) * 5));  /* 按 5 吸附 */
+  var frac = knobValue / 100;                        /* 0..1 */
+  fillEl.style.strokeDashoffset = C * (1 - frac * 0.75);          /* 270° 范围 = 3/4 圆 */
+  ptrEl.setAttribute("transform", "rotate(" + (knobValue * 2.7 - 135) + " 104 104)");
+  knobEl.setAttribute("aria-valuenow", knobValue);
+  goalLine.style.top = (100 - knobValue) + "%";
+  goalText.textContent = "目标 " + knobValue + "%";
+  goalNum.textContent = knobValue;
+  document.querySelectorAll("#main-bars i").forEach(function (b) {
+    b.classList.toggle("hit", +b.dataset.v >= knobValue);
+  });
+  if (!silent) clickSound(false);
+}
+
+(function buildBars() {
+  var box = document.getElementById("main-bars");
+  MONTHS.forEach(function (v) {
+    var i = document.createElement("i");
+    i.style.height = v + "%"; i.dataset.v = v;
+    box.appendChild(i);
+  });
+  var xl = document.getElementById("x-labels");
+  ["1","2","3","4","5","6","7","8","9","10","11","12"].forEach(function (m) {
+    var b = document.createElement("b"); b.textContent = m; xl.appendChild(b);
+  });
+})();
+setKnob(60, true);
+
+var dragging = false;
+function knobDrag(e) {
+  var r = knobEl.getBoundingClientRect();
+  var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  var deg = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90; /* 0=顶部 */
+  if (deg > 180) deg -= 360;
+  deg = Math.max(-135, Math.min(135, deg));         /* 死区外夹紧 */
+  setKnob((deg + 135) / 2.7);
+}
+knobEl.addEventListener("pointerdown", function (e) {
+  dragging = true;
+  try { knobEl.setPointerCapture(e.pointerId); } catch (err) { /* 非活跃指针时不可用 */ }
+  knobDrag(e);
+});
+knobEl.addEventListener("pointermove", function (e) { if (dragging) knobDrag(e); });
+knobEl.addEventListener("pointerup", function () { dragging = false; });
+knobEl.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowUp" || e.key === "ArrowRight") { setKnob(knobValue + 5); e.preventDefault(); }
+  if (e.key === "ArrowDown" || e.key === "ArrowLeft") { setKnob(knobValue - 5); e.preventDefault(); }
+});
+
+/* ============ 交互 03：开关通电 ============ */
+var POWER = [
+  { name: "自动排班", vals: [42, 61, 38, 55, 70, 66, 74] },
+  { name: "绩效提醒", vals: [30, 48, 56, 44, 62, 58, 68] },
+  { name: "招聘看板", vals: [22, 35, 40, 52, 46, 60, 57] }
+];
+var grid = document.getElementById("power-grid");
+POWER.forEach(function (p, idx) {
+  var card = document.createElement("div");
+  card.className = "power-card on";
+  card.innerHTML =
+    '<div class="power-head"><span class="lamp"></span><span class="power-name">' + p.name + '</span>' +
+    '<span class="power-state"><b>ON</b></span></div>' +
+    '<div class="power-row2"><div class="mini-bars">' +
+    p.vals.map(function (v) { return "<i style=\"height:" + v + "%\"></i>"; }).join("") +
+    "</div></div>";
+  var sw = document.createElement("button");
+  sw.className = "switch on"; sw.setAttribute("role", "switch");
+  sw.setAttribute("aria-label", p.name); sw.setAttribute("aria-checked", "true");
+  card.querySelector(".power-head").appendChild(sw);
+  sw.addEventListener("click", function () {
+    var on = sw.classList.toggle("on");
+    card.classList.toggle("on", on);
+    sw.setAttribute("aria-checked", on);
+    card.querySelector(".power-state b").textContent = on ? "ON" : "OFF";
+    clickSound(!on);
+  });
+  grid.appendChild(card);
+});
+
+/* ============ 交互 05：卡片抽拉 ============ */
+(function buildDetailBars() {
+  var box = document.getElementById("detail-bars");
+  [52, 63, 48, 71, 78, 66, 82, 88, 74, 80, 86, 93].forEach(function (v) {
+    var i = document.createElement("i"); i.style.height = v + "%"; box.appendChild(i);
+  });
+})();
+
+var stack = document.getElementById("stack");
+var topCard = document.getElementById("top-card");
+var caption = document.getElementById("pull-caption");
+var back1 = stack.querySelector(".back1");
+var back2 = stack.querySelector(".back2");
+var THRESHOLD = 92;
+var pullStart = 0, pullDy = 0, pulling = false, expanded = false;
+
+topCard.addEventListener("pointerdown", function (e) {
+  if (expanded || e.button !== 0) return;
+  pulling = true; pullStart = e.clientY;
+  try { topCard.setPointerCapture(e.pointerId); } catch (err) { /* 非活跃指针时不可用 */ }
+  topCard.style.transition = "none";
+  back1.style.transition = "none"; back2.style.transition = "none";
+});
+topCard.addEventListener("pointermove", function (e) {
+  if (!pulling) return;
+  pullDy = Math.max(0, Math.min(150, e.clientY - pullStart));
+  var t = "translateY(" + pullDy + "px)";
+  if (!expanded) topCard.style.transform = t;
+  back1.style.transform = "translateY(" + (14 + Math.min(pullDy * 0.28, 26)) + "px) scale(0.94)";
+  back2.style.transform = "translateY(" + (28 + Math.min(pullDy * 0.5, 44)) + "px) scale(0.88)";
+  if (pullDy >= THRESHOLD) {
+    caption.textContent = "拉出查看详情 ↗"; caption.classList.add("ok");
+  } else {
+    caption.textContent = "未超过阈值，松手归位"; caption.classList.remove("ok");
+  }
+});
+function release() {
+  if (!pulling) return;
+  pulling = false;
+  topCard.style.transition = ""; back1.style.transition = ""; back2.style.transition = "";
+  if (pullDy >= THRESHOLD) {
+    expanded = true;
+    topCard.classList.add("expanded");
+    topCard.style.transform = "";
+    back1.style.transform = ""; back2.style.transform = "";
+    caption.textContent = "详情已展开 ↗"; caption.classList.add("ok");
+    clickSound(false);
+  } else {
+    topCard.style.transform = "";                                 /* 弹回原位 */
+    back1.style.transform = ""; back2.style.transform = "";
+    caption.textContent = "按住顶部卡片向下拖拽"; caption.classList.remove("ok");
+  }
+  pullDy = 0;
+}
+topCard.addEventListener("pointerup", release);
+topCard.addEventListener("pointercancel", release);
+document.getElementById("collapse-btn").addEventListener("click", function (e) {
+  e.stopPropagation();
+  expanded = false;
+  topCard.classList.remove("expanded");
+  caption.textContent = "按住顶部卡片向下拖拽"; caption.classList.remove("ok");
+  clickSound(true);
+});
+
+/* ============ 复制底座提示词 ============ */
+document.getElementById("copy-btn").addEventListener("click", function () {
+  var txt = document.getElementById("foundation-text").textContent;
+  var self = this;
+  function done(ok) {
+    var old = self.innerHTML;
+    self.innerHTML = ok ? "<span class=\"dot\"></span>已复制" : old;
+    clickSound(false);
+    if (ok) setTimeout(function () { self.innerHTML = old; }, 1600);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(false); });
+  } else { done(false); }
+});
+</script>
+</body>
+</html>
